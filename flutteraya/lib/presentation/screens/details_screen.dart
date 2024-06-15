@@ -2,61 +2,72 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutteraya/Data/Model/movie_detail_model.dart';
-import 'package:flutteraya/Data/Model/popular_movies_model.dart';
+import 'package:flutteraya/Data/Model/movie_videos_model.dart';
 import 'package:flutteraya/constants.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:url_launcher/link.dart';
 
-class MovieDetails extends StatefulWidget {
-  // int _movieID;
-  // Future<MovieDetailsModel> movieDetails() async {
-  //   MovieDetailsModel movieDetailsModel;
-  //   Dio dio = Dio();
-  //   Response resp;
-  //   resp = await dio.get(api + "${_movieID}" + api_key);
-  //   movieDetailsModel = MovieDetailsModel.fromJson(resp.data);
-  //   return movieDetailsModel;
-  // }
+class MovieDetails extends StatelessWidget {
+  final Movie movie;
 
-  // MovieDetails(this._movieID, {super.key}){
-  //   movieDetails();
-  // }
-  final PopularMovies popularMovies;
+  MovieDetails({required this.movie});
 
-  MovieDetails(this.popularMovies);
+  Future<List> movieVideos() async {
+    Dio dio = Dio();
+    try {
+      final Response resp = await dio.get(
+          "https://api.themoviedb.org/3/movie/${movie.id}/videos" + api_key);
+      print("From dio =========================");
+      print(resp.data);
 
-  @override
-  State<MovieDetails> createState() => _MovieDetailsState();
-}
+      if (resp.data == null || resp.data["results"] == null) {
+        print("No results found in response.");
+        return [];
+      }
 
-class _MovieDetailsState extends State<MovieDetails> {
+      List<dynamic> finalData = resp.data["results"];
+      return finalData.map((e) => MovieVideosModel.fromJson(e)).toList();
+    } catch (e) {
+      print("Error: $e");
+      return [];
+    }
+  }
+
+  // final PopularMovies popularMovie;
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
+
       body: CustomScrollView(
+        physics: BouncingScrollPhysics(),
         slivers: [
           SliverAppBar(
             expandedHeight: 500.h,
             leading: IconButton(
               icon:
-                  Icon(Icons.navigate_before, color: Colors.black, size: 40.sp),
+                  Icon(Icons.navigate_before, color: Colors.white, size: 40.sp),
               onPressed: () => Navigator.pop(context),
             ),
             pinned: true,
             stretch: false,
             backgroundColor: Colors.grey,
             flexibleSpace: FlexibleSpaceBar(
+              centerTitle: true,
+              titlePadding: EdgeInsets.symmetric(vertical: 10.h,horizontal: 40.w),
               title: Text(
-                widget.popularMovies.title!,
+                movie.title!,
                 style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 20.sp),
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 20.sp,
+                ),
+                textAlign: TextAlign.center,
               ),
               background: Hero(
-                tag: '${widget.popularMovies.id}',
+                tag: '${movie.id}',
                 child: Image.network(
-                  "https://image.tmdb.org/t/p/original/" +
-                      widget.popularMovies.posterPath!,
+                  "https://image.tmdb.org/t/p/original/" + movie.posterPath!,
                   fit: BoxFit.fill,
                 ),
               ),
@@ -84,7 +95,7 @@ class _MovieDetailsState extends State<MovieDetails> {
                     height: 5.h,
                   ),
                   Text(
-                    widget.popularMovies.overview!,
+                    movie.overview!,
                     style: TextStyle(
                         color: Colors.grey,
                         fontSize: 12.sp,
@@ -102,39 +113,14 @@ class _MovieDetailsState extends State<MovieDetails> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    "Runtime : ",
+                    "Vote Average : ",
                     style: TextStyle(
                         color: Colors.white,
                         fontSize: 20.sp,
                         fontWeight: FontWeight.bold),
                   ),
                   Text(
-                    "100 minutes",
-                    style: TextStyle(
-                        color: Colors.grey,
-                        fontSize: 20.sp,
-                        fontWeight: FontWeight.w400),
-                  ),
-                ],
-              ),
-            ),
-            SizedBox(
-              height: 30.h,
-            ),
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 20.w),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    "Revenue : ",
-                    style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 20.sp,
-                        fontWeight: FontWeight.bold),
-                  ),
-                  Text(
-                    "100000000\$",
+                    "${movie.voteAverage}",
                     style: TextStyle(
                         color: Colors.grey,
                         fontSize: 20.sp,
@@ -159,7 +145,7 @@ class _MovieDetailsState extends State<MovieDetails> {
                         fontWeight: FontWeight.bold),
                   ),
                   Text(
-                    "${widget.popularMovies.releaseDate}",
+                    "${movie.releaseDate}",
                     style: TextStyle(
                         color: Colors.grey,
                         fontSize: 20.sp,
@@ -169,7 +155,66 @@ class _MovieDetailsState extends State<MovieDetails> {
               ),
             ),
             SizedBox(
-              height: 400.h,
+              height: 30.h,
+            ),
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 20.w),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    "More Videos : ",
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 20.sp,
+                        fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+            ),
+            SizedBox(
+              height: 10.h,
+            ),
+            FutureBuilder(
+                future: movieVideos(),
+                builder: (BuildContext context, AsyncSnapshot<List> snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return Center(child: CircularProgressIndicator());
+                  } else if (snapshot.hasError) {
+                    return Center(child: Text("Error: ${snapshot.error}"));
+                  } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                    return Center(child: Text("No results found"));
+                  } else {
+                    return Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 10.w),
+                      child: ListView.builder(
+                        shrinkWrap: true,
+                        physics: NeverScrollableScrollPhysics(),
+                        itemCount: snapshot.data!.length,
+                        itemBuilder: (context, index) {
+                          MovieVideosModel video = snapshot.data![index];
+                          return Link(
+                            target: LinkTarget.self,
+                            uri: Uri.parse("https://www.youtube.com/watch?v=${video.key}"),
+                            builder:(context, followLink)=> InkWell(
+                              onTap: followLink,
+                              child: Padding(
+                                padding: EdgeInsets.symmetric(vertical: 10.h),
+                                child: ListTile(
+                                  leading: FaIcon(FontAwesomeIcons.youtube,color:Colors.red,size: 24.sp,),
+                                  title: Text(video.name!),
+                                  textColor: Colors.white,
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    );
+                  }
+                }),
+            SizedBox(
+              height: 50.h,
             )
           ])),
         ],
