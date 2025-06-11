@@ -17,7 +17,7 @@ A basic movie application made with flutter featuring:
 
 ---
 
-## Project Structure
+## Project Structure (lib folder)
 
 ```text
 lib/
